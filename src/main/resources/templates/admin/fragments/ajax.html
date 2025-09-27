@@ -4,24 +4,37 @@
 <script>
 const GQL_ENDPOINT = '/graphql';
 
+/* ---------- helpers ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+function $id(id){ return document.getElementById(id); }
+function getVal(id){ return ($id(id)?.value || '').trim(); }
+function num(id){ const v=getVal(id); return v===''?null:Number(v); }
+function toast(msg){
+  const t=$id('toast'); if(!t) return;
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1500);
+}
 async function gql(query, variables = {}) {
   const res = await fetch(GQL_ENDPOINT, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({query, variables})
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ query, variables })
   });
   const json = await res.json();
-  if (json.errors) {
-    alert('GraphQL error: ' + JSON.stringify(json.errors));
-    throw new Error(JSON.stringify(json.errors));
-  }
+  if (json.errors) { console.error(json.errors); alert('GraphQL error: '+(json.errors[0]?.message||'Unknown')); throw new Error(JSON.stringify(json.errors)); }
   return json.data;
 }
 
-function render(rows) {
-  const tb = document.querySelector('#tbl tbody');
+/* ---------- PRODUCTS ---------- */
+function renderProducts(rows) {
+  const tb = $('#tbl tbody');
   tb.innerHTML = (rows || []).map(p => `
-    <tr>
+    <tr data-id="${p.id}"
+        data-title="${p.title ?? ''}"
+        data-qty="${p.quantity ?? ''}"
+        data-price="${p.price ?? ''}"
+        data-user="${p.user?.id ?? ''}"
+        data-cat="${p.category?.id ?? ''}"
+        data-desc="${p.desc ?? ''}">
       <td>${p.id ?? ''}</td>
       <td>${p.title ?? ''}</td>
       <td>${p.quantity ?? ''}</td>
@@ -30,29 +43,194 @@ function render(rows) {
       <td>${p.category ? (p.category.name ?? '') : ''}</td>
     </tr>
   `).join('');
+  tb.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      $id('p_id').value   = tr.dataset.id || '';
+      $id('p_title').value= tr.dataset.title || '';
+      $id('p_qty').value  = tr.dataset.qty || '';
+      $id('p_price').value= tr.dataset.price || '';
+      $id('p_user').value = tr.dataset.user || '';
+      $id('p_cat').value  = tr.dataset.cat || '';
+      $id('p_desc').value = tr.dataset.desc || '';
+      toast('Loaded product #' + tr.dataset.id);
+    });
+  });
 }
-
 async function loadAllAsc() {
   const q = `query {
-    productsSortedByPriceAsc { id title quantity price user{fullname email} category{name} }
+    productsSortedByPriceAsc { id title quantity price user{ id fullname } category{ id name } }
   }`;
   const data = await gql(q);
-  render(data.productsSortedByPriceAsc);
+  renderProducts(data.productsSortedByPriceAsc);
 }
-
 async function loadByCategory() {
-  const catId = Number(document.getElementById('categoryId').value || 1);
+  const catId = Number($id('categoryId').value || 1);
   const q = `query($cid: ID!){
-    productsByCategory(categoryId: $cid){ id title quantity price user{fullname} category{name} }
+    productsByCategory(categoryId:$cid){ id title quantity price user{ id fullname } category{ id name } }
   }`;
-  const data = await gql(q, {cid: catId});
-  render(data.productsByCategory);
+  const data = await gql(q, { cid: catId });
+  renderProducts(data.productsByCategory);
+}
+function readProductInput(partial=false){
+  const v = {
+    title: getVal('p_title') || null,
+    quantity: num('p_qty'),
+    desc: getVal('p_desc') || null,
+    price: getVal('p_price')===''?null:parseFloat(getVal('p_price')),
+    userId: num('p_user'),
+    categoryId: num('p_cat')
+  };
+  if (!partial){
+    if(!v.title) return alert('Title is required'), null;
+    if(v.price==null || Number.isNaN(v.price)) return alert('Price is required'), null;
+    if(v.categoryId==null) return alert('CategoryId is required'), null;
+  }
+  return v;
+}
+async function createProduct() {
+  const v = readProductInput(false); if(!v) return;
+  const q = `mutation($input: ProductInput!){
+    createProduct(input:$input){ id }
+  }`;
+  await gql(q, { input: v });
+  await loadAllAsc();
+  toast('Product created'); clearProductForm();
+}
+async function updateProduct() {
+  const id = num('p_id'); if(id==null) return alert('ID is required for update');
+  const v = readProductInput(true);
+  const q = `mutation($id: ID!, $input: ProductInput!){
+    updateProduct(id:$id, input:$input){ id }
+  }`;
+  await gql(q, { id, input: v });
+  await loadAllAsc(); toast('Product updated');
+}
+async function deleteProduct() {
+  const id = num('p_id'); if(id==null) return alert('ID is required for delete');
+  if(!confirm('Delete product #' + id + '?')) return;
+  const q = `mutation($id: ID!){ deleteProduct(id:$id) }`;
+  await gql(q, { id });
+  await loadAllAsc(); toast('Product deleted'); clearProductForm();
+}
+function clearProductForm(){ ['p_id','p_title','p_qty','p_price','p_user','p_cat','p_desc'].forEach(i=> $id(i).value=''); }
+
+/* ---------- CATEGORIES (LIST + form binding) ---------- */
+function renderCategories(rows){
+  const tb = $('#tblCat tbody');
+  tb.innerHTML = (rows||[]).map(c=>`
+    <tr data-id="${c.id}" data-name="${c.name??''}" data-img="${c.images??''}">
+      <td>${c.id??''}</td>
+      <td>${c.name??''}</td>
+      <td>${c.images??''}</td>
+    </tr>
+  `).join('');
+  tb.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      $id('c_id').value = tr.dataset.id||'';
+      $id('c_name').value = tr.dataset.name||'';
+      $id('c_img').value = tr.dataset.img||'';
+      toast('Loaded category #' + tr.dataset.id);
+    });
+  });
+}
+async function loadCategories(){
+  const q=`query{ categories{ id name images } }`;
+  const data = await gql(q);
+  renderCategories(data.categories);
+}
+async function createCategory(){
+  const name=getVal('c_name'); if(!name) return alert('Name is required');
+  const q=`mutation($in:CategoryInput!){ createCategory(input:$in){ id } }`;
+  await gql(q,{ in:{ name, images:getVal('c_img') }});
+  await loadCategories(); toast('Category created');
+}
+async function updateCategory(){
+  const id=num('c_id'); if(id==null) return alert('ID is required for update');
+  const q=`mutation($id:ID!,$in:CategoryInput!){ updateCategory(id:$id,input:$in){ id } }`;
+  await gql(q,{ id, in:{ name:getVal('c_name')||null, images:getVal('c_img')||null }});
+  await loadCategories(); toast('Category updated');
+}
+async function deleteCategory(){
+  const id=num('c_id'); if(id==null) return alert('ID is required for delete');
+  if(!confirm('Delete category #'+id+'?')) return;
+  const q=`mutation($id:ID!){ deleteCategory(id:$id) }`;
+  await gql(q,{ id });
+  await loadCategories(); toast('Category deleted');
 }
 
+/* ---------- USERS (LIST + form binding) ---------- */
+function renderUsers(rows){
+  const tb = $('#tblUser tbody');
+  tb.innerHTML = (rows||[]).map(u=>`
+    <tr data-id="${u.id}" data-fullname="${u.fullname??''}" data-email="${u.email??''}" data-phone="${u.phone??''}">
+      <td>${u.id??''}</td>
+      <td>${u.fullname??''}</td>
+      <td>${u.email??''}</td>
+      <td>${u.phone??''}</td>
+    </tr>
+  `).join('');
+  tb.querySelectorAll('tr').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      $id('u_id').value = tr.dataset.id||'';
+      $id('u_fullname').value = tr.dataset.fullname||'';
+      $id('u_email').value = tr.dataset.email||'';
+      $id('u_phone').value = tr.dataset.phone||'';
+      $id('u_pass').value = '';
+      toast('Loaded user #' + tr.dataset.id);
+    });
+  });
+}
+async function loadUsers(){
+  const q=`query{ users{ id fullname email phone } }`;
+  const data = await gql(q);
+  renderUsers(data.users);
+}
+async function createUser(){
+  const email=getVal('u_email'); if(!email) return alert('Email is required');
+  const q=`mutation($in:UserInput!){ createUser(input:$in){ id } }`;
+  await gql(q,{ in:{ fullname:getVal('u_fullname'), email, password:getVal('u_pass'), phone:getVal('u_phone') }});
+  await loadUsers(); toast('User created');
+}
+async function updateUser(){
+  const id=num('u_id'); if(id==null) return alert('ID is required for update');
+  const q=`mutation($id:ID!,$in:UserInput!){ updateUser(id:$id,input:$in){ id } }`;
+  await gql(q,{ id, in:{ fullname:getVal('u_fullname')||null, email:getVal('u_email')||null, password:getVal('u_pass')||null, phone:getVal('u_phone')||null }});
+  await loadUsers(); toast('User updated');
+}
+async function deleteUser(){
+  const id=num('u_id'); if(id==null) return alert('ID is required for delete');
+  if(!confirm('Delete user #'+id+'?')) return;
+  const q=`mutation($id:ID!){ deleteUser(id:$id) }`;
+  await gql(q,{ id });
+  await loadUsers(); toast('User deleted');
+}
+
+/* ---------- boot ---------- */
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('btnLoad').addEventListener('click', loadAllAsc);
-  document.getElementById('btnByCat').addEventListener('click', loadByCategory);
-  loadAllAsc(); // auto
+  // product
+  $id('btnLoad').addEventListener('click', loadAllAsc);
+  $id('btnByCat').addEventListener('click', loadByCategory);
+  $id('btnPCreate').addEventListener('click', createProduct);
+  $id('btnPUpdate').addEventListener('click', updateProduct);
+  $id('btnPDelete').addEventListener('click', deleteProduct);
+  $id('btnPClear').addEventListener('click', () => clearProductForm());
+
+  // category
+  $id('btnCatReload').addEventListener('click', loadCategories);
+  $id('btnCCreate').addEventListener('click', createCategory);
+  $id('btnCUpdate').addEventListener('click', updateCategory);
+  $id('btnCDelete').addEventListener('click', deleteCategory);
+
+  // user
+  $id('btnUserReload').addEventListener('click', loadUsers);
+  $id('btnUCreate').addEventListener('click', createUser);
+  $id('btnUUpdate').addEventListener('click', updateUser);
+  $id('btnUDelete').addEventListener('click', deleteUser);
+
+  // initial loads
+  loadAllAsc();
+  loadCategories();
+  loadUsers();
 });
 </script>
 </body>
