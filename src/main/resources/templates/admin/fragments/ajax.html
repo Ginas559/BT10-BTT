@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<body th:fragment="productsScripts">
+<script>
+const GQL_ENDPOINT = '/graphql';
+
+async function gql(query, variables = {}) {
+  const res = await fetch(GQL_ENDPOINT, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({query, variables})
+  });
+  const json = await res.json();
+  if (json.errors) {
+    alert('GraphQL error: ' + JSON.stringify(json.errors));
+    throw new Error(JSON.stringify(json.errors));
+  }
+  return json.data;
+}
+
+function render(rows) {
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = (rows || []).map(p => `
+    <tr>
+      <td>${p.id ?? ''}</td>
+      <td>${p.title ?? ''}</td>
+      <td>${p.quantity ?? ''}</td>
+      <td>${p.price ?? ''}</td>
+      <td>${p.user ? (p.user.fullname ?? p.user.email ?? '') : ''}</td>
+      <td>${p.category ? (p.category.name ?? '') : ''}</td>
+    </tr>
+  `).join('');
+}
+
+async function loadAllAsc() {
+  const q = `query {
+    productsSortedByPriceAsc { id title quantity price user{fullname email} category{name} }
+  }`;
+  const data = await gql(q);
+  render(data.productsSortedByPriceAsc);
+}
+
+async function loadByCategory() {
+  const catId = Number(document.getElementById('categoryId').value || 1);
+  const q = `query($cid: ID!){
+    productsByCategory(categoryId: $cid){ id title quantity price user{fullname} category{name} }
+  }`;
+  const data = await gql(q, {cid: catId});
+  render(data.productsByCategory);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btnLoad').addEventListener('click', loadAllAsc);
+  document.getElementById('btnByCat').addEventListener('click', loadByCategory);
+  loadAllAsc(); // auto
+});
+</script>
+</body>
+</html>

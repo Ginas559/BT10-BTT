@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${pageTitle} ?: 'Admin'">Admin</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 24px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { text-align: left; }
+    .controls { margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+    input, button { padding: 8px; }
+    header { margin-bottom: 16px; font-weight: 600; }
+    footer { margin-top: 24px; font-size: 12px; color: #666; }
+  </style>
+</head>
+<body>
+<header th:fragment="header">
+  <div>🏷️ Demo GraphQL + Thymeleaf</div>
+</header>
+
+<footer th:fragment="footer">
+  <div>© 2025 - Demo</div>
+</footer>
+</body>
+</html>

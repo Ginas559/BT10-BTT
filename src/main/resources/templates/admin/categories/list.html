@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="admin/fragments/layout_admin :: head"></head>
+<body>
+<div th:replace="admin/fragments/layout_admin :: header"></div>
+
+<h2 th:text="${pageTitle} ?: 'Products (price ASC) — GraphQL'">Products</h2>
+
+<div class="controls">
+  <button id="btnLoad">Load all (price ASC)</button>
+  <label>Category ID:
+    <input type="number" id="categoryId" min="1" placeholder="1">
+  </label>
+  <button id="btnByCat">Load by Category</button>
+</div>
+
+<table id="tbl">
+  <thead>
+  <tr>
+    <th>ID</th><th>Title</th><th>Qty</th><th>Price</th><th>User</th><th>Category</th>
+  </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div th:replace="admin/fragments/ajax :: productsScripts"></div>
+<div th:replace="admin/fragments/layout_admin :: footer"></div>
+</body>
+</html>
