@@ -1,0 +1,23 @@
+<!-- path: src/main/resources/templates/login.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Đăng nhập</title>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;margin:40px} .err{color:#dc2626}
+    input{padding:8px 10px;margin:6px 0;border:1px solid #e5e7eb;border-radius:8px}
+    button{padding:8px 12px;border:0;background:#2563eb;color:#fff;border-radius:8px;cursor:pointer}
+  </style>
+</head>
+<body>
+<h2>Đăng nhập</h2>
+<form method="post" th:action="@{/login}">
+  <div><input type="text" name="email" placeholder="Email"></div>
+  <div><input type="password" name="password" placeholder="Mật khẩu"></div>
+  <div><button type="submit">Login</button></div>
+  <p class="err" th:if="${error}" th:text="${error}"></p>
+  <p th:if="${msg}" th:text="${msg}"></p>
+</form>
+</body>
+</html>
