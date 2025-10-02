@@ -1,7 +1,9 @@
-database: 2709
-1. Run: mvn spring-boot:run
-2. Mở browser:
-   - Giao diện web: http://localhost:8092/products
-   - GraphQL Playground: http://localhost:8092/playground
-3. Test GraphQL:
-   - Query/Mutation gửi tới endpoint: http://localhost:8092/graphql
+Bài tập Spring Boot + GraphQL + Validator + Interceptor
+Chuẩn bị database
+- Tạo database tên: `2709`
+- Import script: `user_admin.sql`
+  - Script này tạo sẵn tài khoản test:
+    - **Admin:** `admin@example.com / 123456`
+    - **User:** `user@example.com / 123456`
+Chạy ứng dụng
+
