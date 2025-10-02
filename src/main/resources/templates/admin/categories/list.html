@@ -1,8 +1,12 @@
+<!-- path: src/main/resources/templates/admin/categories/list.html -->
 <!DOCTYPE html>
 <html lang="vi" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="admin/fragments/layout_admin :: head"></head>
 <body>
 <header th:replace="admin/fragments/layout_admin :: header"></header>
+
+<!-- Hộp hiển thị lỗi GraphQL (B3: thêm tối thiểu) -->
+<div id="errorBox" style="display:none; color:#b91c1c; border:1px solid #fecaca; background:#fee2e2; padding:10px; margin:10px 0; border-radius:8px"></div>
 
 <!-- PRODUCTS -->
 <h2>Products — <small>price ASC</small></h2>
