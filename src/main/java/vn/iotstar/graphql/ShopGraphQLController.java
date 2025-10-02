@@ -1,6 +1,8 @@
+// path: src/main/java/vn/iotstar/graphql/ShopGraphQLController.java
 package vn.iotstar.graphql;
 
-import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -12,41 +14,85 @@ import vn.iotstar.repository.CategoryRepository;
 import vn.iotstar.repository.ProductRepository;
 import vn.iotstar.repository.UserRepository;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Controller
-@RequiredArgsConstructor
 public class ShopGraphQLController {
 
-    private final UserRepository userRepo;
     private final CategoryRepository categoryRepo;
     private final ProductRepository productRepo;
+    private final UserRepository userRepo;
 
-    // ---------- Queries ----------
+    public ShopGraphQLController(CategoryRepository c, ProductRepository p, UserRepository u) {
+        this.categoryRepo = c;
+        this.productRepo = p;
+        this.userRepo = u;
+    }
+
+    /* =========================================================
+     *                      QUERIES
+     * ========================================================= */
+
     @QueryMapping
     public List<Product> productsSortedByPriceAsc() {
-        return productRepo.findAllByOrderByPriceAsc();
+        // Sắp xếp ở Java để giữ nguyên repository hiện có
+        return productRepo.findAll().stream()
+                .sorted(Comparator.comparing(p -> p.getPrice() == null ? 0.0 : p.getPrice()))
+                .toList();
     }
 
     @QueryMapping
     public List<Product> productsByCategory(@Argument Long categoryId) {
-        return productRepo.findByCategory_Id(categoryId);
+        // Giữ đúng tên query mà UI đang gọi (ajax.html) :contentReference[oaicite:1]{index=1}
+        return productRepo.findAll().stream()
+                .filter(p -> p.getCategory() != null && p.getCategory().getId().equals(categoryId))
+                .sorted(Comparator.comparing(p -> p.getPrice() == null ? 0.0 : p.getPrice()))
+                .toList();
     }
 
     @QueryMapping
-    public List<User> users() { return userRepo.findAll(); }
+    public List<Category> categories() {
+        return categoryRepo.findAll();
+    }
 
     @QueryMapping
-    public List<Category> categories() { return categoryRepo.findAll(); }
+    public List<User> users() {
+        return userRepo.findAll();
+    }
 
-    @QueryMapping
-    public List<Product> products() { return productRepo.findAll(); }
+    /* =========================================================
+     *                    INPUT + VALIDATION
+     *  (Đặt ràng buộc vào GraphQL Input vì UI gọi mutation qua AJAX)
+     * ========================================================= */
 
-    // ---------- Mutations: User ----------
-    public record UserInput(String fullname, String email, String password, String phone) {}
+    public record UserInput(
+            @NotBlank(message = "{user.fullname.notBlank}") String fullname,
+            @NotBlank(message = "{user.email.notBlank}") @Email(message = "{user.email.invalid}") String email,
+            @NotNull @Size(min = 6, message = "{user.password.size}") String password,
+            @Size(max = 20, message = "{user.phone.size}") String phone
+    ) {}
+
+    public record CategoryInput(
+            @NotBlank(message = "{category.name.notBlank}") @Size(max = 100) String name,
+            @Size(max = 255, message = "{category.images.size}") String images
+    ) {}
+
+    public record ProductInput(
+            @NotBlank(message = "{product.title.notBlank}") String title,
+            @PositiveOrZero(message = "{product.quantity.min}") Integer quantity,
+            @Size(max = 500) String desc,
+            @NotNull @PositiveOrZero(message = "{product.price.min}") Double price,
+            Long userId,
+            @NotNull(message = "{product.categoryId.notNull}") Long categoryId
+    ) {}
+
+    /* =========================================================
+     *                      MUTATIONS: USER
+     * ========================================================= */
 
     @MutationMapping
-    public User createUser(@Argument UserInput input) {
+    public User createUser(@Argument @Valid UserInput input) {
         User u = User.builder()
                 .fullname(input.fullname())
                 .email(input.email())
@@ -57,7 +103,7 @@ public class ShopGraphQLController {
     }
 
     @MutationMapping
-    public User updateUser(@Argument Long id, @Argument UserInput input) {
+    public User updateUser(@Argument Long id, @Argument @Valid UserInput input) {
         User u = userRepo.findById(id).orElseThrow();
         if (input.fullname()!=null) u.setFullname(input.fullname());
         if (input.email()!=null) u.setEmail(input.email());
@@ -73,17 +119,18 @@ public class ShopGraphQLController {
         return true;
     }
 
-    // ---------- Mutations: Category ----------
-    public record CategoryInput(String name, String images) {}
+    /* =========================================================
+     *                   MUTATIONS: CATEGORY
+     * ========================================================= */
 
     @MutationMapping
-    public Category createCategory(@Argument CategoryInput input) {
+    public Category createCategory(@Argument @Valid CategoryInput input) {
         Category c = Category.builder().name(input.name()).images(input.images()).build();
         return categoryRepo.save(c);
     }
 
     @MutationMapping
-    public Category updateCategory(@Argument Long id, @Argument CategoryInput input) {
+    public Category updateCategory(@Argument Long id, @Argument @Valid CategoryInput input) {
         Category c = categoryRepo.findById(id).orElseThrow();
         if (input.name()!=null) c.setName(input.name());
         if (input.images()!=null) c.setImages(input.images());
@@ -97,12 +144,12 @@ public class ShopGraphQLController {
         return true;
     }
 
-    // ---------- Mutations: Product ----------
-    public record ProductInput(String title, Integer quantity, String desc,
-                               Double price, Long userId, Long categoryId) {}
+    /* =========================================================
+     *                    MUTATIONS: PRODUCT
+     * ========================================================= */
 
     @MutationMapping
-    public Product createProduct(@Argument ProductInput input) {
+    public Product createProduct(@Argument @Valid ProductInput input) {
         Product p = new Product();
         p.setTitle(input.title());
         p.setQuantity(input.quantity());
@@ -116,7 +163,7 @@ public class ShopGraphQLController {
     }
 
     @MutationMapping
-    public Product updateProduct(@Argument Long id, @Argument ProductInput input) {
+    public Product updateProduct(@Argument Long id, @Argument @Valid ProductInput input) {
         Product p = productRepo.findById(id).orElseThrow();
         if (input.title()!=null) p.setTitle(input.title());
         if (input.quantity()!=null) p.setQuantity(input.quantity());

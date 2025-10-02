@@ -102,6 +102,14 @@
 			<artifactId>spring-graphql-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		
+		<!-- path: pom.xml -->
+		<!-- Thêm starter Validation (JSR-380) -->
+		<dependency>
+		  <groupId>org.springframework.boot</groupId>
+		  <artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
 
 	</dependencies>
 
